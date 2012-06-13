@@ -61,6 +61,34 @@ class ConsumerTest < Test::Unit::TestCase
     assert_equal :post,@consumer.http_method
   end
 
+  def test_site_without_path
+    @consumer=OAuth::Consumer.new(
+      "key",
+      "secret",
+      {
+          :site=>"http://twitter.com"
+      })
+    request = stub(:oauth! => nil)
+    http = stub(:request => stub(:to_hash => {}))
+    Net::HTTP::Get.expects(:new).with('/people', {}).returns(request)
+    @consumer.expects(:create_http).returns(http)
+    @consumer.request(:get, '/people', nil, {})
+  end
+
+  def test_site_with_path
+    @consumer=OAuth::Consumer.new(
+      "key",
+      "secret",
+      {
+          :site=>"http://identi.ca/api"
+      })
+    request = stub(:oauth! => nil)
+    http = stub(:request => stub(:to_hash => {}))
+    Net::HTTP::Get.expects(:new).with('/api/people', {}).returns(request)
+    @consumer.expects(:create_http).returns(http)
+    @consumer.request(:get, '/people', nil, {})
+  end
+
   def test_override_paths
     @consumer=OAuth::Consumer.new(
       "key",
@@ -96,6 +124,18 @@ class ConsumerTest < Test::Unit::TestCase
     @consumer.expects(:request).returns(create_stub_http_response)
 
     hash = @consumer.token_request(:get, '') {{ :oauth_token => 'token', :oauth_token_secret => 'secret' }}
+
+    assert_equal 'token', hash[:oauth_token]
+    assert_equal 'secret', hash[:oauth_token_secret]
+  end
+
+  def test_token_request_follows_redirect
+    redirect_url = @request_uri.clone
+    redirect_url.path = "/oauth/example/request_token_redirect.php"
+    stub_request(:get, /.*#{@request_uri.path}/).to_return(:status => 301, :headers => {'Location' => redirect_url.to_s})
+    stub_request(:get, /.*#{redirect_url.path}/).to_return(:body => "oauth_token=token&oauth_token_secret=secret")
+
+    hash = @consumer.token_request(:get, @request_uri.path) {{ :oauth_token => 'token', :oauth_token_secret => 'secret' }}
 
     assert_equal 'token', hash[:oauth_token]
     assert_equal 'secret', hash[:oauth_token_secret]

@@ -20,15 +20,19 @@ As a matter of fact it has been pulled out from an OAuth Rails Plugin http://cod
 
 == Demonstration of usage
 
+We need to specify the oauth_callback url explicitly, otherwise it defaults to "oob" (Out of Band)
+
+  @callback_url = "http://127.0.0.1:3000/oauth/callback"
+
 Create a new consumer instance by passing it a configuration hash:
 
   @consumer = OAuth::Consumer.new("key","secret", :site => "https://agree2")
 
 Start the process by requesting a token
 
-  @request_token = @consumer.get_request_token
+  @request_token = @consumer.get_request_token(:oauth_callback => @callback_url)
   session[:request_token] = @request_token
-  redirect_to @request_token.authorize_url
+  redirect_to @request_token.authorize_url(:oauth_callback => @callback_url)
 
 When user returns create an access_token
 
@@ -37,6 +41,7 @@ When user returns create an access_token
 
 Now that you have an access token, you can use Typhoeus to interact with the OAuth provider if you choose.
 
+  require 'oauth/request_proxy/typhoeus_request'
   oauth_params = {:consumer => oauth_consumer, :token => access_token}
   hydra = Typhoeus::Hydra.new
   req = Typhoeus::Request.new(uri, options) 

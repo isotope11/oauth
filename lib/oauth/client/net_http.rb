@@ -2,7 +2,7 @@ require 'oauth/helper'
 require 'oauth/client/helper'
 require 'oauth/request_proxy/net_http'
 
-class Net::HTTPRequest
+class Net::HTTPGenericRequest
   include OAuth::Helper
 
   attr_reader :oauth_helper
@@ -69,8 +69,9 @@ private
     uri.port = http.port
 
     if options[:request_endpoint] && options[:site]
+      is_https = options[:site].match(%r(^https://))
       uri.host = options[:site].gsub(%r(^https?://), '')
-      uri.port = 80
+      uri.port ||= is_https ? 443 : 80
     end
 
     if http.respond_to?(:use_ssl?) && http.use_ssl?
@@ -83,7 +84,7 @@ private
   end
 
   def oauth_body_hash_required?
-    request_body_permitted? && content_type != "application/x-www-form-urlencoded"
+    request_body_permitted? && !content_type.to_s.downcase.start_with?("application/x-www-form-urlencoded")
   end
 
   def set_oauth_header

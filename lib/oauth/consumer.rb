@@ -43,9 +43,6 @@ module OAuth
       # Add a custom ca_file for consumer
       # :ca_file       => '/etc/certs.pem'
 
-      # Add a custom ca_file for consumer
-      # :ca_file       => '/etc/certs.pem'
-
       :oauth_version => "1.0"
     }
 
@@ -212,7 +209,9 @@ module OAuth
         end
       when (300..399)
         # this is a redirect
-        response.error!
+        uri = URI.parse(response.header['location'])
+        response.error! if uri.path == path # careful of those infinite redirects
+        self.token_request(http_method, uri.path, token, request_options, arguments)
       when (400..499)
         raise OAuth::Unauthorized, response
       else
@@ -329,15 +328,19 @@ module OAuth
         data = arguments.shift
       end
 
+      # if the base site contains a path, add it now
+      uri = URI.parse(site)
+      path = uri.path + path if uri.path && uri.path != '/'
+
       headers = arguments.first.is_a?(Hash) ? arguments.shift : {}
 
       case http_method
       when :post
         request = Net::HTTP::Post.new(path,headers)
-        request["Content-Length"] = 0 # Default to 0
+        request["Content-Length"] = '0' # Default to 0
       when :put
         request = Net::HTTP::Put.new(path,headers)
-        request["Content-Length"] = 0 # Default to 0
+        request["Content-Length"] = '0' # Default to 0
       when :get
         request = Net::HTTP::Get.new(path,headers)
       when :delete
@@ -356,15 +359,15 @@ module OAuth
         if data.respond_to?(:read)
           request.body_stream = data
           if data.respond_to?(:length)
-            request["Content-Length"] = data.length
+            request["Content-Length"] = data.length.to_s
           elsif data.respond_to?(:stat) && data.stat.respond_to?(:size)
-            request["Content-Length"] = data.stat.size
+            request["Content-Length"] = data.stat.size.to_s
           else
             raise ArgumentError, "Don't know how to send a body_stream that doesn't respond to .length or .stat.size"
           end
         else
           request.body = data.to_s
-          request["Content-Length"] = request.body.length
+          request["Content-Length"] = request.body.length.to_s
         end
       end
 
